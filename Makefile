@@ -3,7 +3,7 @@
 ##              and mac os x
 ## Ryan Nichol <rjn@hep.ucl.ac.uk>
 ##############################################################################
-include ../Makefile.arch
+include Makefile.arch
 
 #Site Specific  Flags
 SYSINCLUDES	= -I/usr/local/include

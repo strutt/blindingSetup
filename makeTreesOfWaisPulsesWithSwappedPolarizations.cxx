@@ -4,7 +4,7 @@
  Email: b.strutt.12@ucl.ac.uk
 
  Description:
-             Program to find peak cross correlation offsets between antenna pairs in pulses from Wais Divide.
+             Program to select WAIS pulses, swap their polarizations info and put them into a new tree
 *************************************************************************************************************** */
 
 #include "TFile.h"
@@ -24,8 +24,8 @@ int main(){
   // Runs near WAIS divide 
   // const Int_t firstRun = 331;
   // const Int_t lastRun = 354;
-  const Int_t firstRun = 352;
-  const Int_t lastRun = 352;  
+  const Int_t firstRun = 331;
+  const Int_t lastRun = 354;
 
   //*************************************************************************
   // Set up input
