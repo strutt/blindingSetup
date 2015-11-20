@@ -72,7 +72,7 @@ endif
 OBJS = 
 
 
-BINARIES = makeBlindingTree
+BINARIES = makeTreesOfWaisPulsesWithSwappedPolarizations overwriteSoftwareTriggeredEventsWithSwappedWaisPulses
 
 #Now the bits we're actually compiling
 all: $(OBJS) $(BINARIES) commit
