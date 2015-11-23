@@ -19,13 +19,16 @@
 
 #include "ProgressBar.h"
 
-int main(){
+int main(int argc, char* argv[]){
 
   // Runs near WAIS divide 
   // const Int_t firstRun = 331;
   // const Int_t lastRun = 354;
-  const Int_t firstRun = 331;
-  const Int_t lastRun = 354;
+  if(argc!=2){
+    std::cerr << "Usage: " << argv[0] << " [run]" << std::endl;
+  }
+  const Int_t firstRun = atoi(argv[1]);
+  const Int_t lastRun = firstRun;
 
   //*************************************************************************
   // Set up input
@@ -61,13 +64,13 @@ int main(){
   // Set up output
   //*************************************************************************  
   
-  TString outFileName = "calEventFileWaisPulsesSwappedPolarizations.root";
+  TString outFileName = TString::Format("calEventFileWaisPulsesSwappedPolarizations%d.root", firstRun);
   TFile* calEventOutFile = new TFile(outFileName, "recreate");
   TTree* calEventOutTree = new TTree("eventTree", "Tree of Anita Events");
   CalibratedAnitaEvent* calEventOut = NULL;
   calEventOutTree->Branch("event", &calEventOut);
 
-  outFileName = "headFileWaisPulsesSwappedPolarizations.root";
+  outFileName = TString::Format("headFileWaisPulsesSwappedPolarizations%d.root", firstRun);
   TFile* headOutFile = new TFile(outFileName, "recreate");
   TTree* headOutTree = new TTree("headTree", "Tree of Anita Headers");
   RawAnitaHeader* headerOut = NULL;
