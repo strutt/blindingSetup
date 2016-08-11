@@ -65,13 +65,14 @@ int main(int argc, char* argv[]){
   // Set up output
   //*************************************************************************  
   
-  TString outFileName = TString::Format("calEventFileWaisPulsesSwappedPolarizations%d.root", firstRun);
+  TString outFileName = "blindCalEventFile.root";  
+  // TString outFileName = TString::Format("calEventFileWaisPulsesSwappedPolarizations%d.root", firstRun);  
   TFile* calEventOutFile = new TFile(outFileName, "recreate");
   TTree* calEventOutTree = new TTree("eventTree", "Tree of Anita Events");
   CalibratedAnitaEvent* calEventOut = NULL;
   calEventOutTree->Branch("event", &calEventOut);
 
-  outFileName = TString::Format("headFileWaisPulsesSwappedPolarizations%d.root", firstRun);
+  outFileName = "blindHeadFile.root";
   TFile* headOutFile = new TFile(outFileName, "recreate");
   TTree* headOutTree = new TTree("headTree", "Tree of Anita Headers");
   RawAnitaHeader* headerOut = NULL;
@@ -80,112 +81,98 @@ int main(int argc, char* argv[]){
   headOutTree->Branch("heading", &waisEventHeading);
   headOutTree->Branch("header", &headerOut);  
 
+
   //*************************************************************************
-  // Loop over events
-  //*************************************************************************  
+  // Loop over pulse indices
+  //*************************************************************************
+
+  headChain->BuildIndex("eventNumber");
   
-  const Long64_t maxEntries = headChain->GetEntries();
+  const Long64_t maxEntries = nForTree;
   ProgressBar p(maxEntries);
-  for(Long64_t entry=0; entry<maxEntries; entry++){
-    headChain->GetEntry(entry);
-    gpsChain->GetEntryWithIndex(headerIn->realTime);
+  for(Long64_t pulseInd=0; pulseInd<nForTree; pulseInd++){
+    Long64_t entry = headChain->GetEntryWithIndex(myPulseEventNumbers[pulseInd]);
 
-    //*************************************************************************
-    // WAIS pulse selection based on trigger time
-    //*************************************************************************  
-    if((headerIn->trigType & 1)==1){
-      UsefulAdu5Pat usefulPat(pat);
-      UInt_t triggerTimeNsExpected = usefulPat.getWaisDivideTriggerTimeNs();
-      UInt_t triggerTimeNs = headerIn->triggerTimeNs;
+    std::cout << entry << std::endl;
+    if(entry >= 0){
+      calEventChain->GetEntry(entry);
 
-      const Double_t maxDeltaTriggerTimeNs = 1200;      
-      Int_t deltaTriggerTimeNs = Int_t(triggerTimeNs) - Int_t(triggerTimeNsExpected);
-      if(TMath::Abs(deltaTriggerTimeNs) < maxDeltaTriggerTimeNs){    
+      //*************************************************************************
+      // Copy header and calibrated event
+      //*************************************************************************  
+      headerOut = (RawAnitaHeader*) headerIn->Clone();	
+      calEventOut = (CalibratedAnitaEvent*) calEventIn->Clone();
 
-	// Finally get the big slow thing
-	calEventChain->GetEntry(entry);      
-
-	//*************************************************************************
-	// Copy header and calibrated event
-	//*************************************************************************  
-	headerOut = (RawAnitaHeader*) headerIn->Clone();	
-	calEventOut = (CalibratedAnitaEvent*) calEventIn->Clone();
-
-	//*************************************************************************
-	// Swap event data between V and H channels
-	//*************************************************************************  
-	for(Int_t polInd=0; polInd<AnitaPol::kNotAPol; polInd++){
-	  AnitaPol::AnitaPol_t inputPol = (AnitaPol::AnitaPol_t) polInd;
-	  AnitaPol::AnitaPol_t outputPol;
-	  if(inputPol==AnitaPol::kHorizontal) {
-	    outputPol=AnitaPol::kVertical;
-	  }
-	  else if(inputPol==AnitaPol::kVertical) {
-	    outputPol=AnitaPol::kHorizontal;
-	  }
-	  else{
-	    std::cerr << "??????" << std::endl;
-	  }
+      //*************************************************************************
+      // Swap event data between V and H channels
+      //*************************************************************************  
+      for(Int_t polInd=0; polInd<AnitaPol::kNotAPol; polInd++){
+	AnitaPol::AnitaPol_t inputPol = (AnitaPol::AnitaPol_t) polInd;
+	AnitaPol::AnitaPol_t outputPol;
+	if(inputPol==AnitaPol::kHorizontal) {
+	  outputPol=AnitaPol::kVertical;
+	}
+	else if(inputPol==AnitaPol::kVertical) {
+	  outputPol=AnitaPol::kHorizontal;
+	}
+	else{
+	  std::cerr << "??????" << std::endl;
+	}
 	  
-	  for(Int_t ant=0; ant<NUM_SEAVEYS; ant++){
-	    Int_t inputIndex = AnitaGeomTool::getChanIndexFromAntPol(ant, inputPol);
-	    Int_t outputIndex = AnitaGeomTool::getChanIndexFromAntPol(ant, outputPol);
+	for(Int_t ant=0; ant<NUM_SEAVEYS; ant++){
+	  Int_t inputIndex = AnitaGeomTool::getChanIndexFromAntPol(ant, inputPol);
+	  Int_t outputIndex = AnitaGeomTool::getChanIndexFromAntPol(ant, outputPol);
 
-	    Int_t surfIn, chanIn, surfOut, chanOut;
-	    AnitaGeomTool::getSurfChanFromChanIndex(inputIndex, surfIn, chanIn);
-	    AnitaGeomTool::getSurfChanFromChanIndex(outputIndex, surfOut, chanOut);
+	  Int_t surfIn, chanIn, surfOut, chanOut;
+	  AnitaGeomTool::getSurfChanFromChanIndex(inputIndex, surfIn, chanIn);
+	  AnitaGeomTool::getSurfChanFromChanIndex(outputIndex, surfOut, chanOut);
 
-	    if(surfIn != surfOut){
-	      std::cerr << "Now what am I supposed to do?????" << std::endl;
-	    }
+	  if(surfIn != surfOut){
+	    std::cerr << "Now what am I supposed to do?????" << std::endl;
+	  }
 	    
 
-	    for(int samp=0; samp<NUM_SAMP; samp++){
-	      calEventOut->data[outputIndex][samp] = calEventIn->data[inputIndex][samp];
-	    }
-	    calEventOut->xMax[outputIndex] = calEventIn->xMax[inputIndex];
-	    calEventOut->xMin[outputIndex] = calEventIn->xMin[inputIndex];
-	    calEventOut->mean[outputIndex] = calEventIn->mean[inputIndex];
-	    calEventOut->rms[outputIndex] = calEventIn->rms[inputIndex];
+	  for(int samp=0; samp<NUM_SAMP; samp++){
+	    calEventOut->data[outputIndex][samp] = calEventIn->data[inputIndex][samp];
 	  }
+	  calEventOut->xMax[outputIndex] = calEventIn->xMax[inputIndex];
+	  calEventOut->xMin[outputIndex] = calEventIn->xMin[inputIndex];
+	  calEventOut->mean[outputIndex] = calEventIn->mean[inputIndex];
+	  calEventOut->rms[outputIndex] = calEventIn->rms[inputIndex];
 	}
-
-	//*************************************************************************
-	// Swap header data between V and H branch elements
-	//*************************************************************************
-
-	headerOut->l1TrigMask = headerIn->l1TrigMaskH;
-	headerOut->l1TrigMaskH = headerIn->l1TrigMask;
-
-	headerOut->phiTrigMask = headerIn->phiTrigMaskH;
-	headerOut->phiTrigMaskH = headerIn->phiTrigMask;
-
-	// The lowest bit of the prioritizer is the polarization flag.
-	// Because it's the lowest bit I can just add or subtract 1 as required.
-	headerOut->prioritizerStuff = headerIn->prioritizerStuff;
-	Int_t lowestBit = (headerOut->prioritizerStuff & 1);
-	headerOut->prioritizerStuff -= lowestBit; // remove lowest bit
-	Int_t newLowestBit = 1 - lowestBit;
-	headerOut->prioritizerStuff += newLowestBit; // add new lowest bit
-
-	headerOut->l3TrigPattern = headerIn->l3TrigPatternH;
-	headerOut->l3TrigPatternH = headerIn->l3TrigPattern;	
-
-
-	//*************************************************************************
-	// Fill new trees
-	//*************************************************************************
-	
-
-	waisEventHeading = pat->heading;
-	
-	headOutTree->Fill();
-	calEventOutTree->Fill();
       }
+
+      //*************************************************************************
+      // Swap header data between V and H branch elements
+      //*************************************************************************
+
+      headerOut->l1TrigMask = headerIn->l1TrigMaskH;
+      headerOut->l1TrigMaskH = headerIn->l1TrigMask;
+
+      headerOut->phiTrigMask = headerIn->phiTrigMaskH;
+      headerOut->phiTrigMaskH = headerIn->phiTrigMask;
+
+      // The lowest bit of the prioritizer is the polarization flag.
+      // Because it's the lowest bit I can just add or subtract 1 as required.
+      headerOut->prioritizerStuff = headerIn->prioritizerStuff;
+      Int_t lowestBit = (headerOut->prioritizerStuff & 1);
+      headerOut->prioritizerStuff -= lowestBit; // remove lowest bit
+      Int_t newLowestBit = 1 - lowestBit;
+      headerOut->prioritizerStuff += newLowestBit; // add new lowest bit
+
+      headerOut->l3TrigPattern = headerIn->l3TrigPatternH;
+      headerOut->l3TrigPatternH = headerIn->l3TrigPattern;
+
+      //*************************************************************************
+      // Fill new trees
+      //*************************************************************************
+	
+
+      // waisEventHeading = pat->heading;
     }
-  
-    p++;
-  }
+	
+      p.inc(pulseInd, nForTree);
+    }
   calEventOutFile->Write();
   calEventOutFile->Close();  
 
