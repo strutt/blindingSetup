@@ -24,11 +24,11 @@ int main(int argc, char* argv[]){
   // Runs near WAIS divide 
   // const Int_t firstRun = 331;
   // const Int_t lastRun = 354;
-  if(argc!=2){
-    std::cerr << "Usage: " << argv[0] << " [run]" << std::endl;
+  if(argc!=3){
+    std::cerr << "Usage: " << argv[0] << " [firstRun] [lastRun]" << std::endl;
   }
   const Int_t firstRun = atoi(argv[1]);
-  const Int_t lastRun = firstRun;
+  const Int_t lastRun = atoi(argv[2]);  
 
   //*************************************************************************
   // Set up input
