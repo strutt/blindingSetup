@@ -51,13 +51,18 @@ int main(int argc, char* argv[]){
 
   for(Int_t run=firstRun; run<=lastRun; run++){
     // TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.root", run, run);
-    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.unblinded.root", run, run);    
+    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.unblind.root", run, run);    
     headChain->Add(fileName);
 
   }
   RawAnitaHeader* headerIn = NULL;
   headChain->SetBranchAddress("header", &headerIn);
 
+  if(headChain->GetEntries()==0){
+    std::cerr << "Unable to find header file for run " << firstRun << ". Giving up." << std::endl;
+    return 1;
+  }
+  
   //*************************************************************************
   // Set up output
   //*************************************************************************  
@@ -89,16 +94,16 @@ int main(int argc, char* argv[]){
 
     Int_t fakeTreeEntry = isEventToOverwrite(headerIn->eventNumber);
     if(fakeTreeEntry >= 0){
-      std::cout << "I'm a fake event!" << headerIn->eventNumber << "\t" << fakeTreeEntry << std::endl;
-      std::cout << fFakeHeadTree << "\t" << fFakeHeader << "\t" << fFakeHeadTree->GetEntry(fakeTreeEntry) << std::endl;
-      std::cout << "the fake info " << fFakeHeader->eventNumber << "\t" << std::endl;
+      // std::cout << "I'm a fake event!" << headerIn->eventNumber << "\t" << fakeTreeEntry << std::endl;
+      // std::cout << fFakeHeadTree << "\t" << fFakeHeader << "\t" << fFakeHeadTree->GetEntry(fakeTreeEntry) << std::endl;
+      // std::cout << "the fake info " << fFakeHeader->eventNumber << "\t" << std::endl;
       headerOut = (RawAnitaHeader*) fFakeHeader->Clone();
 
       // get the ones that obviously stand out in magic display
       headerOut->eventNumber = headerIn->eventNumber;
       headerOut->run = headerIn->run;
       headerOut->trigNum = headerIn->trigNum;
-      std::cout << headerOut->trigNum << std::endl;
+      // std::cout << headerOut->trigNum << std::endl;
 
       // int getTurfEventNumber()
       // { return (turfEventId&0xfffff);} ///< Returns the event number portion of the TURF event id.
@@ -184,7 +189,7 @@ void loadBlindTrees() {
   Int_t fakeTreeEntry;
   while(overwrittenEventInfoFile >> overwrittenEventNumber >> fakeTreeEntry){
     overwrittenEventInfo.push_back(std::pair<UInt_t, Int_t>(overwrittenEventNumber, fakeTreeEntry));
-    std::cout << overwrittenEventInfo.at(overwrittenEventInfo.size()-1).first << "\t" << overwrittenEventInfo.at(overwrittenEventInfo.size()-1).second << std::endl;
+    // std::cout << overwrittenEventInfo.at(overwrittenEventInfo.size()-1).first << "\t" << overwrittenEventInfo.at(overwrittenEventInfo.size()-1).second << std::endl;
   }
   if(overwrittenEventInfo.size()==0){
     std::cerr << "Warning in " << __FILE__ << std::endl;
