@@ -1,28 +1,20 @@
 # Blinding the ANITA-3 analysis
 
--   columns     :B_columns:
-
-    -   left column     :B_column:
-    
-        <div class="org-center">
+<div class="org-center">
         ![img](./auger.png)
-        </div>
-        
-        -   HPol analysis
-            -   Cosmic rays channel, no new physics
-            -   Insert **0** events - **Unblinded**
+        </div>        
+-   HPol analysis
+-   Cosmic rays channel, no new physics
+-   Insert **0** events - **Unblinded**
     
-    -   right column     :B_column:
-    
-        <div class="org-center">
-        ![img](./askaryanBlind.jpg)
-        </div>
-        
-        -   VPol analysis
-            -   Potential neutrino discovery channel
-            -   Insert **~10** events - **Blinded**
+<div class="org-center">
+![img](./askaryanBlind.jpg)
+</div>
 
--   a     :B_ignoreheading:
+-   VPol analysis
+-   Potential neutrino discovery channel
+-   Insert **~10** events - **Blinded**
+
 
 ## Step 1 - Select N ~ 10 event to overwrite
 
