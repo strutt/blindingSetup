@@ -51,9 +51,9 @@ int main(int argc, char* argv[]){
 
   for(Int_t run=firstRun; run<=lastRun; run++){
     // TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.root", run, run);
-    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.unblind.root", run, run);    
+    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%d.root", run, run);
     headChain->Add(fileName);
-
+    
   }
   RawAnitaHeader* headerIn = NULL;
   headChain->SetBranchAddress("header", &headerIn);
