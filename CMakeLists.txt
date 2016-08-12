@@ -57,7 +57,7 @@ set(ANITA_LIBS AnitaEvent AnitaAnalysis AnitaAnalysisTools AnitaCorrelator RootF
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra -Wshadow -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror")
 
-set(BINARIES makeTreesOfWaisPulsesWithSwappedPolarizations) # overwriteSoftwareTriggeredEventsWithSwappedWaisPulses)
+set(BINARIES makeTreesOfWaisPulsesWithSwappedPolarizations makeBlindHeadTrees makeAnita3FakeEventList) # overwriteSoftwareTriggeredEventsWithSwappedWaisPulses)
 
 FOREACH(binary ${BINARIES})
   MESSAGE(STATUS "Process file: ${binary}")
