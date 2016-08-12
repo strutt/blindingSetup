@@ -28,6 +28,7 @@ int main(int argc, char* argv[]){
   // const Int_t lastRun = 354;
   if(argc!=3){
     std::cerr << "Usage: " << argv[0] << " [firstRun] [lastRun]" << std::endl;
+    return 1;
   }
   const Int_t firstRun = atoi(argv[1]);
   const Int_t lastRun = atoi(argv[2]);  
@@ -57,12 +58,12 @@ int main(int argc, char* argv[]){
   // runing over events counts this many...
   Long64_t countedMinBiasEvents = 1813681;
 
-  // UInt_t seed = 123984; // mashed keyboard with hands
-  TRandom3 rnd(0);
+  UInt_t seed = 123984; // mashed keyboard with hands
+  TRandom3 rnd(seed);
 
   // don't print this number on the final go...
-  // const int N = rnd.Uniform(10, 15);
-  const int N = 10;
+  const int N = rnd.Uniform(10, 15);
+  // const int N = 10;
   
   // now divide minBiasEvents into N sections
   const int numPerSection = countedMinBiasEvents / (N);
@@ -85,10 +86,8 @@ int main(int argc, char* argv[]){
 	fakeTreeEntriesAvailable.at(tryThisEntry) = 0;
 	unusedEntry = true;
       }
-    }    
+    }
     fakeTreeEntries.push_back(fakeTreeEntry);
-    
-    std::cerr << minBiasIndex << "\t" << fakeTreeEntry << std::endl;    
   }
   Int_t selectedEvents = 0;
 
@@ -111,9 +110,9 @@ int main(int argc, char* argv[]){
     if(isMinBias > 0){
       if(indicesOfMinBiasEvents.at(selectedEvents)==numMinBias){
 	// std::cerr << numMinBias << "\t" << header->eventNumber << "\t" << header->run << std::endl;
-	std::cerr << numMinBias << "\t" << header->eventNumber << "\t"
-		  << fakeTreeEntries.at(selectedEvents) << "\t"
-		  << header->run << std::endl;
+	// std::cerr << numMinBias << "\t" << header->eventNumber << "\t"
+	// 	  << fakeTreeEntries.at(selectedEvents) << "\t"
+	// 	  << header->run << std::endl;
 	
 	outFile << header->eventNumber << "\t" << fakeTreeEntries.at(selectedEvents) << std::endl;
 	selectedEvents++;
