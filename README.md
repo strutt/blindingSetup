@@ -1,15 +1,11 @@
 # Blinding the ANITA-3 analysis
 
-<div class="org-center">
-        ![img](./auger.png)
-        </div>        
+![img](./auger.png)
 -   HPol analysis
 -   Cosmic rays channel, no new physics
 -   Insert **0** events - **Unblinded**
     
-<div class="org-center">
 ![img](./askaryanBlind.jpg)
-</div>
 
 -   VPol analysis
 -   Potential neutrino discovery channel
