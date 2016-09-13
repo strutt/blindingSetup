@@ -32,7 +32,7 @@ Int_t isEventToOverwrite(UInt_t eventNumber);
 
 int main(int argc, char* argv[]){
 
-  // Runs near WAIS divide 
+  // Runs near WAIS divide
   // const Int_t firstRun = 331;
   // const Int_t lastRun = 354;
   if(argc!=2){
@@ -43,17 +43,17 @@ int main(int argc, char* argv[]){
 
   //*************************************************************************
   // Set up input
-  //*************************************************************************  
+  //*************************************************************************
 
   loadBlindTrees();
-  
+
   TChain* headChain = new TChain("headTree");
 
   for(Int_t run=firstRun; run<=lastRun; run++){
     // TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.root", run, run);
-    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%d.root", run, run);
+    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%dOfflineMask.root", run, run);
     headChain->Add(fileName);
-    
+
   }
   RawAnitaHeader* headerIn = NULL;
   headChain->SetBranchAddress("header", &headerIn);
@@ -62,13 +62,13 @@ int main(int argc, char* argv[]){
     std::cerr << "Unable to find header file for run " << firstRun << ". Giving up." << std::endl;
     return 1;
   }
-  
+
   //*************************************************************************
   // Set up output
-  //*************************************************************************  
+  //*************************************************************************
 
 
-  TString outFileName = TString::Format("blindHeadFileV1_%d.root", firstRun);
+  TString outFileName = TString::Format("blindHeadFileV2_%d.root", firstRun);
   TFile* headOutFile = new TFile(outFileName, "recreate");
   TTree* headOutTree = new TTree("headTree", "Tree of Anita Headers");
   RawAnitaHeader* headerOut = NULL;
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]){
   //*************************************************************************
   // Loop over pulse indices
   //*************************************************************************
-  
+
   Long64_t nEntries = headChain->GetEntries();
   Long64_t maxEntry = 0; //2500;
   Long64_t startEntry = 0;
@@ -116,11 +116,11 @@ int main(int argc, char* argv[]){
     }
 
     headOutTree->Fill();
-	
+
     p.inc(entry, maxEntry);
   }
   headOutFile->Write();
-  headOutFile->Close();  
+  headOutFile->Close();
 
   return 0;
 }
@@ -148,7 +148,7 @@ void loadBlindTrees() {
   fFakeEventTree = NULL;
   fFakeHeader = NULL;
 
-    
+
   char calibDir[FILENAME_MAX] = ".";
   char fileName[FILENAME_MAX];
   // char *calibEnv=getenv("ANITA_CALIB_DIR");
@@ -196,7 +196,7 @@ void loadBlindTrees() {
     std::cerr << "Unable to find overwrittenEventInfo" << std::endl;
   }
 
-    
+
   // whinge if you can't find the data
   if(fFakeEventFile && fFakeHeadTree && fFakeHeadFile && fFakeEventTree){
     // std::cerr << "fgInstance = " << fgInstance << ", but this = " << this << std::endl;
@@ -209,9 +209,8 @@ void loadBlindTrees() {
     std::cerr << "fFakeHeadFile = " << fFakeHeadFile << std::endl;
     std::cerr << "fFakeHeadTree = " << fFakeHeadTree << std::endl;
     std::cerr << "fFakeEventFile = " << fFakeEventFile << std::endl;
-    std::cerr << "fFakeEventTree = " << fFakeEventTree << std::endl;    
+    std::cerr << "fFakeEventTree = " << fFakeEventTree << std::endl;
   }
-    
+
 
 }
-
