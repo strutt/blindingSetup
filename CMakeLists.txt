@@ -57,13 +57,10 @@ set(ANITA_LIBS AnitaEvent AnitaAnalysis AnitaAnalysisTools AnitaCorrelator RootF
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra -Wshadow -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror")
 
-set(BINARIES makeTreesOfWaisPulsesWithSwappedPolarizations makeBlindHeadTrees makeAnita3OverwrittenEventList) # overwriteSoftwareTriggeredEventsWithSwappedWaisPulses)
+set(BINARIES reconstruction makeTreesOfWaisPulsesWithSwappedPolarizations makeBlindHeadTrees makeAnita3OverwrittenEventList) # overwriteSoftwareTriggeredEventsWithSwappedWaisPulses)
 
 FOREACH(binary ${BINARIES})
   MESSAGE(STATUS "Process file: ${binary}")
   add_executable(${binary} ${binary}.cxx)
-  target_link_libraries(${binary} ${ZLIB_LIBRARIES} ${ANITA_LIBS} ${ROOT_LIBRARIES} ${FFTW_LIBRARIES})  
+  target_link_libraries(${binary} ${ZLIB_LIBRARIES} ${ANITA_LIBS} ${ROOT_LIBRARIES} ${FFTW_LIBRARIES})
 ENDFOREACH(binary)
-
-
-
