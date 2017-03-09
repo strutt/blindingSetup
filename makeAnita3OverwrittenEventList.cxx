@@ -1,29 +1,40 @@
 // -*- C++ -*-.
 /*****************************************************************************************************************
  Author: Ben Strutt
- Email: b.strutt.12@ucl.ac.uk
+ Email: strutt@physics.ucla.edu
 
  Description:
-             Program to select WAIS pulses, swap their polarizations info and put them into a new tree
+             Selects some minimum bias events (not in the decimated data set) from a set of time bins spanning the flight, and writes them to a file. Pretty simple really.
 *************************************************************************************************************** */
 
 #include "TFile.h"
 #include "TChain.h"
 #include "TTree.h"
 #include "TRandom3.h"
+#include "TLegend.h"
+#include "TApplication.h"
 
 #include "RawAnitaHeader.h"
 #include "UsefulAdu5Pat.h"
 #include "UsefulAnitaEvent.h"
 #include "CalibratedAnitaEvent.h"
 #include "AnitaEventCalibrator.h"
+#include "AnitaVersion.h"
 
+#include "AnitaEventSummary.h"
+#include "OutputConvention.h"
 #include "ProgressBar.h"
+#include "TGraphAntarctica.h"
 #include "FancyFFTs.h"
+
 
 int main(int argc, char* argv[]){
 
-  // Runs near WAIS divide 
+  AnitaVersion::set(3);
+
+  TApplication* theApp = new TApplication(argv[0], &argc, argv);
+
+  // Runs near WAIS divide
   // const Int_t firstRun = 331;
   // const Int_t lastRun = 354;
   if(argc!=3){
@@ -31,13 +42,14 @@ int main(int argc, char* argv[]){
     return 1;
   }
   const Int_t firstRun = atoi(argv[1]);
-  const Int_t lastRun = atoi(argv[2]);  
+  const Int_t lastRun = atoi(argv[2]);
 
   //*************************************************************************
   // Set up input
-  //*************************************************************************  
+  //*************************************************************************
 
   TChain* headChain = new TChain("headTree");
+  TChain* gpsChain = new TChain("adu5PatTree");
   TChain* decimated = new TChain("headTree");
 
   for(Int_t run=firstRun; run<=lastRun; run++){
@@ -45,38 +57,50 @@ int main(int argc, char* argv[]){
       TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%d.root", run, run);
       headChain->Add(fileName);
 
-      fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/decimatedHeadFile%d.root", run, run);    
+      fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/gpsEvent%d.root", run, run);
+      gpsChain->Add(fileName);
+
+      fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/decimatedHeadFile%d.root", run, run);
       decimated->Add(fileName);
     }
   }
+
+
   RawAnitaHeader* header = NULL;
   headChain->SetBranchAddress("header", &header);
-
-
+  headChain->BuildIndex("realTime");
   decimated->BuildIndex("eventNumber");
 
+  Adu5Pat* pat = NULL;
+  gpsChain->SetBranchAddress("pat", &pat);
 
   const int numPulses=50;
-  
+
   std::ofstream outFile("anita3OverwrittenEventInfo.txt", std::ofstream::out);
   outFile << "eventNumber\tfakeTreeEntry" << std::endl;
-  
-  Long64_t numMinBias = 0;
-  // runing over events counts this many...
-  Long64_t countedMinBiasEvents = 1813681;
 
-  UInt_t seed = 123985; // mashed keyboard with hands
+  TFile* fReco = OutputConvention::getFile("reconstruction_*");
+  TTree* tReco = (TTree*) fReco->Get("eventSummaryTree");
+  AnitaEventSummary* summary = NULL;
+  tReco->SetBranchAddress("eventSummary", &summary);
+
+
+  // Now for version 3 of the blinding, we will divide the flight into segments of time
+  // rather than segments of eventNumber...
+  headChain->GetEntry(0);
+  UInt_t firstRealTime = header->realTime;
+  headChain->GetEntry(headChain->GetEntries()-1);
+  UInt_t lastRealTime = header->realTime;
+  // std::cout << firstRealTime << "\t" << lastRealTime << "\t" << lastRealTime - firstRealTime << std::endl;
+
+  UInt_t seed = 13986513; // mashed keyboard with hands
   // UInt_t seed = 0;
   TRandom3 rnd(seed);
 
   // don't print this number on the final go...
   const int N = rnd.Uniform(10, 15);
   // const int N = 10;
-  
-  // now divide minBiasEvents into N sections
-  Long64_t numPerSection = countedMinBiasEvents / (N);
 
-  std::vector<Int_t> indicesOfMinBiasEvents;
   std::vector<Int_t> fakeTreeEntries;
   std::vector<Int_t> fakeTreeEntriesAvailable(numPulses, 1);
   for(int i=0; i < N; i++){
@@ -84,6 +108,7 @@ int main(int argc, char* argv[]){
     Int_t fakeTreeEntry = -1;
     bool unusedEntry=false;
     while(unusedEntry==false){
+
       Int_t tryThisEntry = rnd.Uniform(0, numPulses);
       if(fakeTreeEntriesAvailable.at(tryThisEntry) == 1){
 	fakeTreeEntry = tryThisEntry;
@@ -96,83 +121,127 @@ int main(int argc, char* argv[]){
   Int_t selectedEvents = 0;
 
 
+  // Long64_t nEntries = headChain->GetEntries();
 
-  // This variable tracks which entry the replaced event will map to
-  
-  Long64_t nEntries = headChain->GetEntries();
-  Long64_t maxEntry = 0; //2500;
-  Long64_t startEntry = 0;
-  if(maxEntry<=0 || maxEntry > nEntries) maxEntry = nEntries;
+  // now loop over number of selected blinded pulses, and place them
 
-  std::vector<Long64_t> boundaries;// {0, 10020905, 16529635, 25346226, 33950133, 41851692, 49780722, 56722096, 64172375, 71274663, 78630035, 78630542};
-  
-  std::cout << "Processing " << maxEntry << " of " << nEntries << " entries." << std::endl;
-  // ProgressBar p2(startEntry - maxEntry);
-  for(Long64_t entry=startEntry; entry<maxEntry; entry++){
-    headChain->GetEntry(entry);
-    Int_t isMinBias = header->getTriggerBitSoftExt();
-    if(isMinBias > 0){
-      if(numMinBias % numPerSection == 0){
-  	boundaries.push_back(entry);
-  	// std::cerr << entry << std::endl;
-      }
-      numMinBias++;      
-    }
-    // p2.inc(startEntry, maxEntry);
-  }
+  TGraphAntarctica* grBlindRecoPosition = new TGraphAntarctica();
+  TGraphAntarctica* grAnitaPat = new TGraphAntarctica();
+  std::vector<TGraphAntarctica*> grConnectors;
 
-  boundaries.push_back(maxEntry);  
-  // std::cout << " I got " << boundaries.size() << " boundaries" << std::endl << "{";
-  // for(auto& e : boundaries){
-  //   std::cout << e << ", ";
-  // }
-  // std::cout << "};" << std::endl;
-  
-  ProgressBar p(N);  
+  // ProgressBar p(N);
   for(Long64_t i=0; i < N; i++){
 
-    bool selectedEventIsInDecimatedDataSet = true;
-    while(selectedEventIsInDecimatedDataSet){
-      numMinBias = 0;
-      Long64_t indexOfMinBiasEvents = rnd.Uniform(0, numPerSection);
-      
-      for(Long64_t entry=boundaries.at(i); entry<boundaries.at(i+1); entry++){
 
-	headChain->GetEntry(entry);
 
-	Int_t isMinBias = header->getTriggerBitSoftExt();
-	// std::cerr << entry << "\t" << boundaries.at(i) << "\t" << boundaries.at(i+1) << std::endl;
-	if(isMinBias > 0){
-	  if(indexOfMinBiasEvents==numMinBias){
+    // get the fake event
+    Int_t fakeTreeEntry = fakeTreeEntries.at(selectedEvents);
+    tReco->GetEntry(fakeTreeEntry);
 
-	    Int_t isDec = decimated->GetEntryWithIndex(header->eventNumber);
-	    if(isDec < 0){
-	      outFile << header->eventNumber << "\t" << fakeTreeEntries.at(selectedEvents) << std::endl;
-	      // std::cout << header->eventNumber << "\t" << header->run << "\t" << fakeTreeEntries.at(selectedEvents) << std::endl;
-	      selectedEvents++;
-	      selectedEventIsInDecimatedDataSet = false;
-	      break;
-	    }
-	    else{
-	      numMinBias = 0;
-	      selectedEventIsInDecimatedDataSet = true;
-	      break;
-	    }
-	  };
-	  numMinBias++;
-	  if(selectedEvents>=N){ // we're done here
-	    break;
-	  }
-	}
+    Int_t isDec = 1;
+    Int_t isMinBias = 0;
+
+    int numWhile = 0;
+
+    bool onContinent = false;
+    Double_t sourceLon, sourceLat, sourceAltitude;
+
+    const int crazyNumber = 1000000;
+    while(isDec > -1 || isMinBias <= 0 || !onContinent){
+
+      // Pick any event from within the time window
+      UInt_t randomTime = rnd.Uniform(firstRealTime, lastRealTime);
+      Int_t entry = headChain->GetEntryNumberWithIndex(randomTime);
+
+      headChain->GetEntry(entry);
+      isDec = decimated->GetEntryNumberWithIndex(header->eventNumber);
+      isMinBias = header->getTriggerBitSoftExt();
+
+
+
+      // Now check if reconstructs to the continent
+      gpsChain->GetEntry(entry);
+      // std::cout << gpsBytes << std::endl;
+      UsefulAdu5Pat usefulPat(pat);
+
+
+      Double_t phiWave = summary->peak[AnitaPol::kVertical][0].phi*TMath::DegToRad();
+      Double_t thetaWave = summary->peak[AnitaPol::kVertical][0].theta*TMath::DegToRad();
+      usefulPat.getSourceLonAndLatAtAlt(phiWave, -thetaWave, sourceLon, sourceLat, sourceAltitude);
+
+      // skip events that don't reconstruct to continent
+      onContinent = RampdemReader::isOnContinent(sourceLon, sourceLat);
+
+      // std::cout << "In while loop " << isDec << "\t" << isMinBias << "\t" << onContinent << std::endl;
+
+      if(numWhile >= crazyNumber){
+	std::cerr << "Something seems wrong here. I'm quitting!" << std::endl;
+	return 1;
       }
+      numWhile++;
+
     }
-    p.inc(i, N);
+
+    grBlindRecoPosition->SetPoint(grBlindRecoPosition->GetN(), sourceLon, sourceLat);
+    grAnitaPat->SetPoint(grAnitaPat->GetN(), pat->longitude, pat->latitude);
+
+    TGraphAntarctica* grConnector = new TGraphAntarctica();
+    grConnector->SetPoint(grConnector->GetN(), pat->longitude, pat->latitude);
+    grConnector->SetPoint(grConnector->GetN(), sourceLon, sourceLat);
+    grConnectors.push_back(grConnector);
+
+    UsefulAdu5Pat usefulPat(pat);
+
+    Double_t sourceAlt = RampdemReader::SurfaceAboveGeoid(sourceLon, sourceLat);
+    Double_t distKm = 1e-3*usefulPat.getDistanceFromSource(sourceLat, sourceLon, sourceAlt);
+
+
+    std::cout << "Inserted event " << i << ":" << std::endl;
+    std::cout << "ANITA at " << pat->longitude << "\t" << pat->latitude << "\t" << 1e-3*pat->altitude << std::endl;
+    std::cout << "Reconstructed position at " << sourceLon << "\t" << sourceLat << "\t" << 1e-3*sourceAlt << std::endl;
+    std::cout << "They are separated by " << distKm << " km"  << std::endl;
+
+    // write event number to file
+    outFile << header->eventNumber << "\t" << fakeTreeEntry << std::endl;
+
+    selectedEvents++;
+    // p.inc(i, N);
+    std::cout << i << "\t" << N << std::endl;
   }
 
   outFile.close();
 
+  grBlindRecoPosition->SetMarkerStyle(8);
+  grBlindRecoPosition->SetMarkerColor(kRed);
+  grBlindRecoPosition->Draw("ap");
+
+  const int numPointsIWant = 5000;
+  const int selectEvery = (gpsChain->GetEntries())/numPointsIWant;
+  TString cutString = "(Entry$ % " + TString::Format("%d)==0", selectEvery);
+
+  TGraphAntarctica* grFlightPath = new TGraphAntarctica(gpsChain, "longitude", "latitude", TCut(cutString.Data()));
+  grFlightPath->SetLineColor(kGreen);
+  grFlightPath->Draw("lsame");
+
+  grAnitaPat->SetMarkerStyle(8);
+  grAnitaPat->SetMarkerColor(kGreen);
+  grAnitaPat->Draw("psame");
+
+  TLegend* l = new TLegend(0.75, 0, 1, 0.25);
+  l->AddEntry(grFlightPath, "ANITA-3 Flight Path", "l");
+  l->AddEntry(grAnitaPat, "ANITA's position for inserted events", "p");
+  l->AddEntry(grBlindRecoPosition, "Reconstructed position of inserted events", "p");
+  l->AddEntry(grConnectors.at(0), "Reconstructed position to ANITA", "l");
+
+
+  for(UInt_t i=0; i < grConnectors.size(); i++){
+    grConnectors.at(i)->Draw("lsame");
+    grConnectors.at(i)->SetLineColor(kMagenta);
+  }
+  l->Draw();
+
+  theApp->Run();
+
   return 0;
 
 }
-
-
