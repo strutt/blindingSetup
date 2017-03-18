@@ -1,10 +1,21 @@
 # Blinding the ANITA-3 analysis
 
+A how to guide for blinding the ANITA analysis in 5 easy steps.
+
+### Episode 2: the blinding strikes back
+- Unblinding my analysis revealed some weaknesses in my analysis I hope to address the second time around.
+- The main limitation was not being matching the peak direction closely enough with un-masked directions in the overwritten header events.
+- So this time I:
+    - find the peak direction of the events I will insert.
+	- then look at the offline phi-masking in V and H and avoid inserting if they are close.
+	- Reconstruct the event and check it reconstructs to somewhere on the continent.
+
+
 ![img](./auger.png)
 -   HPol analysis
 -   Cosmic rays channel, no new physics
 -   Insert **0** events - **Unblinded**
-    
+
 ![img](./askaryanBlind.jpg)
 
 -   VPol analysis

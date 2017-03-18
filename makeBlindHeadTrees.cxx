@@ -21,14 +21,18 @@
 #include "FancyFFTs.h"
 
 
-std::vector<std::pair<UInt_t, Int_t> > overwrittenEventInfo; /// pair.first is eventNumber of event to overwrite, pair.second is entry in fakeEventTree to overwrite it with.
-TFile* fFakeHeadFile = NULL;
-TFile* fFakeEventFile = NULL;
-TTree* fFakeHeadTree = NULL;
-TTree* fFakeEventTree = NULL;
-RawAnitaHeader* fFakeHeader = NULL;
+TFile* fakeEventFile = NULL;
+TTree* fakeEventTree = NULL;
+UsefulAnitaEvent* fakeEvent = NULL;
+
+// pair.first is eventNumber of event to overwrite
+// pair.second is entry in fakeEventTree to overwrite it with.
+std::vector<std::pair<UInt_t, Int_t> > overwrittenEventInfo;
+
 void loadBlindTrees();
 Int_t isEventToOverwrite(UInt_t eventNumber);
+
+Int_t blindingVersion = 3; // since finishing thesis
 
 int main(int argc, char* argv[]){
 
@@ -48,6 +52,15 @@ int main(int argc, char* argv[]){
   loadBlindTrees();
 
   TChain* headChain = new TChain("headTree");
+  TChain* fakeChain = new TChain("headTree");
+  for(Int_t run=331; run <= 354; run++){
+    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%dOfflineMask.root", run, run);
+    fakeChain->Add(fileName);
+  }
+  fakeChain->BuildIndex("eventNumber");
+  RawAnitaHeader* fakeHeader = NULL;
+  fakeChain->SetBranchAddress("header", &fakeHeader);
+
 
   for(Int_t run=firstRun; run<=lastRun; run++){
     // TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/headFile%d.root", run, run);
@@ -68,7 +81,7 @@ int main(int argc, char* argv[]){
   //*************************************************************************
 
 
-  TString outFileName = TString::Format("blindHeadFileV2_%d.root", firstRun);
+  TString outFileName = TString::Format("blindHeadFileV%d_%d.root", blindingVersion, firstRun);
   TFile* headOutFile = new TFile(outFileName, "recreate");
   TTree* headOutTree = new TTree("headTree", "Tree of Anita Headers");
   RawAnitaHeader* headerOut = NULL;
@@ -92,27 +105,63 @@ int main(int argc, char* argv[]){
     // Copy header and calibrated event
     //*************************************************************************
 
+
+    headerOut = headerIn;
+
     Int_t fakeTreeEntry = isEventToOverwrite(headerIn->eventNumber);
     if(fakeTreeEntry >= 0){
-      // std::cout << "I'm a fake event!" << headerIn->eventNumber << "\t" << fakeTreeEntry << std::endl;
-      // std::cout << fFakeHeadTree << "\t" << fFakeHeader << "\t" << fFakeHeadTree->GetEntry(fakeTreeEntry) << std::endl;
-      // std::cout << "the fake info " << fFakeHeader->eventNumber << "\t" << std::endl;
-      headerOut = (RawAnitaHeader*) fFakeHeader->Clone();
 
-      // get the ones that obviously stand out in magic display
-      headerOut->eventNumber = headerIn->eventNumber;
-      headerOut->run = headerIn->run;
-      headerOut->trigNum = headerIn->trigNum;
-      // std::cout << headerOut->trigNum << std::endl;
+      fakeEventTree->GetEntry(fakeTreeEntry);
+      fakeChain->GetEntryWithIndex(fakeEvent->eventNumber);
 
-      // int getTurfEventNumber()
-      // { return (turfEventId&0xfffff);} ///< Returns the event number portion of the TURF event id.
-      // headerOut->turfEventId &= ~(0xfffff); // set bits to zero
-      // headerOut->turfEventId |= headerIn->getTurfEventNumber(); // set bits to input header
-      headerOut->turfEventId = headerIn->turfEventId;
-    }
-    else{
-      headerOut = (RawAnitaHeader*) headerIn->Clone();
+      headerOut->l1TrigMask = fakeHeader->l1TrigMaskH;
+      headerOut->l1TrigMaskH = fakeHeader->l1TrigMask;
+      headerOut->phiTrigMask = fakeHeader->phiTrigMaskH;
+      headerOut->phiTrigMaskH = fakeHeader->phiTrigMask;
+      headerOut->l1TrigMaskOffline = fakeHeader->l1TrigMaskHOffline;
+      headerOut->l1TrigMaskHOffline = fakeHeader->l1TrigMaskOffline;
+      headerOut->phiTrigMaskOffline = fakeHeader->phiTrigMaskHOffline;
+      headerOut->phiTrigMaskHOffline = fakeHeader->phiTrigMaskOffline;
+
+
+      headerOut->l3TrigPattern = fakeHeader->l3TrigPatternH;
+      headerOut->l3TrigPatternH = fakeHeader->l3TrigPattern;
+
+      // looks like TObject::Clone doesn't properly copy UChar_t (maybe Char_t too?)
+      // so do this manaully here
+      headerOut->priority = fakeHeader->priority;
+      headerOut->turfUpperWord = fakeHeader->turfUpperWord;
+      headerOut->otherFlag = fakeHeader->otherFlag;
+      headerOut->errorFlag = fakeHeader->errorFlag;
+      headerOut->surfSlipFlag = fakeHeader->surfSlipFlag = fakeHeader->surfSlipFlag = fakeHeader->surfSlipFlag;
+      headerOut->nadirAntTrigMask = fakeHeader->nadirAntTrigMask;
+      headerOut->peakThetaBin = fakeHeader->peakThetaBin;
+      for(int i=0; i < 2; i++){
+	headerOut->reserved[i] = fakeHeader->reserved[i];
+      }
+      headerOut->trigType = fakeHeader->trigType;
+      headerOut->l3Type1Count = fakeHeader->l3Type1Count;
+      headerOut->bufferDepth = fakeHeader->bufferDepth;
+      headerOut->turfioReserved = fakeHeader->turfioReserved;
+      headerOut->nadirL1TrigPattern = fakeHeader->nadirL1TrigPattern;
+      headerOut->nadirL2TrigPattern = fakeHeader->nadirL2TrigPattern;
+
+
+
+      std::cout << headerOut->eventNumber << "\t" << headerOut->trigNum << std::endl;
+      std::cout << (fakeHeader->errorFlag & 0x1) << "\t" << (headerOut->errorFlag & 0x1) << std::endl;
+      std::cout << (fakeHeader->errorFlag & 0x2) << "\t" << (headerOut->errorFlag & 0x2) << std::endl;
+      std::cout << (fakeHeader->errorFlag & 0x4) << "\t" << (headerOut->errorFlag & 0x4) << std::endl;
+      std::cout << (fakeHeader->errorFlag & 0x8) << "\t" << (headerOut->errorFlag & 0x8) << std::endl;
+      std::cout << (fakeHeader->errorFlag & 0x10) << "\t" << (headerOut->errorFlag & 0xf) << std::endl;
+
+      std::cout << (fakeHeader->priority) << "\t" << (headerOut->priority) << std::endl;
+      std::cout << (fakeHeader->turfUpperWord) << "\t" << (headerOut->turfUpperWord) << std::endl;
+      std::cout << (fakeHeader->otherFlag) << "\t" << (headerOut->otherFlag) << std::endl;
+      std::cout << (fakeHeader->surfSlipFlag) << "\t" << (headerOut->surfSlipFlag) << std::endl;
+
+      fakeEvent = NULL;
+
     }
 
     headOutTree->Fill();
@@ -141,42 +190,9 @@ Int_t isEventToOverwrite(UInt_t eventNumber){
 
 void loadBlindTrees() {
 
-  // zero internal pointers so can check we find everything.
-  fFakeHeadFile = NULL;
-  fFakeEventFile = NULL;
-  fFakeHeadTree = NULL;
-  fFakeEventTree = NULL;
-  fFakeHeader = NULL;
-
-
   char calibDir[FILENAME_MAX] = ".";
   char fileName[FILENAME_MAX];
-  // char *calibEnv=getenv("ANITA_CALIB_DIR");
-  // if(!calibEnv) {
-  //   char *utilEnv=getenv("ANITA_UTIL_INSTALL_DIR");
-  //   if(!utilEnv){
-  //     sprintf(calibDir,"calib");
-  //   }
-  //   else{
-  //     sprintf(calibDir,"%s/share/anitaCalib",utilEnv);
-  //   }
-  // }
-  // else {
-  //   strncpy(calibDir,calibEnv,FILENAME_MAX);
-  // }
 
-  // these are the fake events, that will be inserted in place of some min bias events
-  sprintf(fileName, "%s/fakeEventFile.root", calibDir);
-  fFakeEventFile = TFile::Open(fileName);
-  if(fFakeEventFile){
-    fFakeEventTree = (TTree*) fFakeEventFile->Get("eventTree");
-  }
-  // the header data won't actually get used
-  sprintf(fileName, "%s/fakeHeadFile.root", calibDir);
-  fFakeHeadFile = TFile::Open(fileName);
-  if(fFakeHeadFile){
-    fFakeHeadTree = (TTree*) fFakeHeadFile->Get("headTree");
-  }
 
 
   // these are the min bias event numbers to be overwritten, with the entry in the fakeEventTree
@@ -197,20 +213,8 @@ void loadBlindTrees() {
   }
 
 
-  // whinge if you can't find the data
-  if(fFakeEventFile && fFakeHeadTree && fFakeHeadFile && fFakeEventTree){
-    // std::cerr << "fgInstance = " << fgInstance << ", but this = " << this << std::endl;
-    // fFakeEventTree->SetBranchAddress("event", &fFakeEvent);
-    fFakeHeadTree->SetBranchAddress("header", &fFakeHeader);
-  }
-  else{
-    std::cerr << "Warning in " << __FILE__ << std::endl;
-    std::cerr << "Unable to find files for blinding" << std::endl;
-    std::cerr << "fFakeHeadFile = " << fFakeHeadFile << std::endl;
-    std::cerr << "fFakeHeadTree = " << fFakeHeadTree << std::endl;
-    std::cerr << "fFakeEventFile = " << fFakeEventFile << std::endl;
-    std::cerr << "fFakeEventTree = " << fFakeEventTree << std::endl;
-  }
-
+  fakeEventFile = TFile::Open("fakeEventFile.root");
+  fakeEventTree = (TTree*) fakeEventFile->Get("eventTree");
+  fakeEventTree->SetBranchAddress("event", &fakeEvent);
 
 }

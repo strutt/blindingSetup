@@ -49,8 +49,8 @@ int main(int argc, char *argv[]){
   }
   TString headerFileName = TString::Format("%s/share/anitaCalib/fakeHeadFile.root", anitaInstallDir);
   headChain->Add(headerFileName);
-  TString eventFileName = TString::Format("%s/share/anitaCalib/fakeHeadFile.root", anitaInstallDir);
-  headChain->Add(eventFileName);
+  TString eventFileName = TString::Format("%s/share/anitaCalib/fakeEventFile.root", anitaInstallDir);
+  eventChain->Add(eventFileName);
 
   for(Int_t run=firstRun; run<=lastRun; run++){
 
@@ -58,7 +58,6 @@ int main(int argc, char *argv[]){
     gpsChain->Add(fileName);
   }
 
-  gpsChain->BuildIndex("eventNumber");
 
   OutputConvention oc(argc, argv);
   TString outFileName = oc.getOutputFileName();
@@ -75,7 +74,13 @@ int main(int argc, char *argv[]){
   eventChain->SetBranchAddress("event", &usefulEvent);
 
   Adu5Pat* pat = NULL;
+  // UInt_t realTime2 = 0;
   gpsChain->SetBranchAddress("pat", &pat);
+  // gpsChain->SetBranchAddress("realTime", &realTime2);
+
+  gpsChain->BuildIndex("eventNumber");
+  gpsChain->Show(0);
+
 
   CrossCorrelator::SimpleNotch notch260("n260Notch", "260MHz Satellite And 200MHz Notch Notch",
   					260-26, 260+26);
@@ -112,14 +117,24 @@ int main(int argc, char *argv[]){
   Long64_t maxEntry = headChain->GetEntries();
 
   std::cout << "Processing " << maxEntry-startEntry << " of " << nEntries << " entries." << std::endl;
-  std::cout << "Starting at entry " << startEntry << " up to  " << maxEntry << " entry." << std::endl;
+  std::cout << "Starting at entry " << startEntry << " up to entry " << maxEntry << "." << std::endl;
   ProgressBar p(maxEntry-startEntry);
+
+  std::cout << AnitaEventCalibrator::Instance() << std::endl;
 
   for(Long64_t entry = startEntry; entry < maxEntry; entry++){
 
     headChain->GetEntry(entry);
     eventChain->GetEntry(entry);
-    gpsChain->GetEntryWithIndex(header->eventNumber);
+
+    Long64_t gpsEntry = gpsChain->GetEntryNumberWithIndex(header->eventNumber);
+    if(gpsEntry < 0){
+      std::cerr << "??????? " << header->eventNumber << std::endl;
+      continue;
+    }
+    gpsChain->GetEntry(gpsEntry);
+
+    // std::cout << header->realTime << "\t" << realTime2 << std::endl;
 
     UsefulAdu5Pat usefulPat(pat);
     cc->reconstructEvent(usefulEvent, myNumPeaksCoarse, myNumPeaksFine);
@@ -138,6 +153,25 @@ int main(int argc, char *argv[]){
 			    eventSummary->peak[pol][peakInd].value,
 			    eventSummary->peak[pol][peakInd].phi,
 			    eventSummary->peak[pol][peakInd].theta);
+
+	usefulPat.getSourceLonAndLatAltZero(eventSummary->peak[pol][peakInd].phi*TMath::DegToRad(),
+					    eventSummary->peak[pol][peakInd].theta*TMath::DegToRad(),
+					    eventSummary->peak[pol][peakInd].longitude,
+					    eventSummary->peak[pol][peakInd].latitude);
+	// usefulPat.getSourceLonAndLatAtAlt(eventSummary->peak[pol][peakInd].phi*TMath::DegToRad(),
+	// 				  eventSummary->peak[pol][peakInd].theta*TMath::DegToRad(),
+	// 				  eventSummary->peak[pol][peakInd].longitude,
+	// 				  eventSummary->peak[pol][peakInd].latitude,
+	// 				  eventSummary->peak[pol][peakInd].altitude);
+
+	if(peakInd == 0){
+	  std::cout << header->eventNumber << "\t" << pol << "\t" <<  peakInd << "\t"
+		    << eventSummary->peak[pol][peakInd].value << "\t"
+		    << eventSummary->peak[pol][peakInd].phi << "\t"
+		    << eventSummary->peak[pol][peakInd].theta << "\t"
+		    << eventSummary->peak[pol][peakInd].longitude << "\t"
+		    << eventSummary->peak[pol][peakInd].latitude << std::endl;
+	}
 
 	TGraph* grZ0 = cc->makeUpsampledCoherentlySummedWaveform(pol,
 								 eventSummary->peak[pol][peakInd].phi,
@@ -165,11 +199,11 @@ int main(int argc, char *argv[]){
     eventSummary->flags.isVarner2 = 0; //!< Not sure I will use this.
     eventSummary->flags.pulser = AnitaEventSummary::EventFlags::NONE; //!< Not yet.
 
-    delete usefulEvent;
+    // delete usefulEvent;
 
     eventSummaryTree->Fill();
     // delete eventSummary;
-    p.inc(entry, nEntries);
+    // p.inc(entry, nEntries);
   }
 
   // saves time later

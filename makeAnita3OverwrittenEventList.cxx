@@ -26,6 +26,7 @@
 #include "ProgressBar.h"
 #include "TGraphAntarctica.h"
 #include "FancyFFTs.h"
+#include "RootTools.h"
 
 
 int main(int argc, char* argv[]){
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]){
 
   for(Int_t run=firstRun; run<=lastRun; run++){
     if(run < 257 || run > 263){
-      TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%d.root", run, run);
+      TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%dOfflineMask.root", run, run);
       headChain->Add(fileName);
 
       fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/gpsEvent%d.root", run, run);
@@ -93,7 +94,8 @@ int main(int argc, char* argv[]){
   UInt_t lastRealTime = header->realTime;
   // std::cout << firstRealTime << "\t" << lastRealTime << "\t" << lastRealTime - firstRealTime << std::endl;
 
-  UInt_t seed = 13986513; // mashed keyboard with hands
+  UInt_t seed = 29348756; // mashed keyboard with hands
+  // UInt_t seed = 13986513; // mashed keyboard with hands
   // UInt_t seed = 0;
   TRandom3 rnd(seed);
 
@@ -128,7 +130,7 @@ int main(int argc, char* argv[]){
   TGraphAntarctica* grBlindRecoPosition = new TGraphAntarctica();
   TGraphAntarctica* grAnitaPat = new TGraphAntarctica();
   std::vector<TGraphAntarctica*> grConnectors;
-
+  Double_t eventBearing = -1;
   // ProgressBar p(N);
   for(Long64_t i=0; i < N; i++){
 
@@ -144,10 +146,12 @@ int main(int argc, char* argv[]){
     int numWhile = 0;
 
     bool onContinent = false;
+    bool southFacingEvent = false;
+
     Double_t sourceLon, sourceLat, sourceAltitude;
 
     const int crazyNumber = 1000000;
-    while(isDec > -1 || isMinBias <= 0 || !onContinent){
+    while(isDec > -1 || isMinBias <= 0 || !onContinent || !southFacingEvent){
 
       // Pick any event from within the time window
       UInt_t randomTime = rnd.Uniform(firstRealTime, lastRealTime);
@@ -167,10 +171,20 @@ int main(int argc, char* argv[]){
 
       Double_t phiWave = summary->peak[AnitaPol::kVertical][0].phi*TMath::DegToRad();
       Double_t thetaWave = summary->peak[AnitaPol::kVertical][0].theta*TMath::DegToRad();
-      usefulPat.getSourceLonAndLatAtAlt(phiWave, -thetaWave, sourceLon, sourceLat, sourceAltitude);
+      int retVal = usefulPat.getSourceLonAndLatAtAlt(phiWave, -thetaWave, sourceLon, sourceLat, sourceAltitude);
 
-      // skip events that don't reconstruct to continent
-      onContinent = RampdemReader::isOnContinent(sourceLon, sourceLat);
+      if(retVal!=1){
+	onContinent = false;
+      }
+      else{
+	// skip events that don't reconstruct to continent
+	onContinent = RampdemReader::isOnContinent(sourceLon, sourceLat);
+      }
+
+      eventBearing = RootTools::getDeltaAngleDeg(pat->heading, summary->peak[AnitaPol::kVertical][0].phi);
+      southFacingEvent = TMath::Abs(eventBearing) > 135;
+      std::cout << eventBearing << "\t" << pat->heading << "\t" << summary->peak[AnitaPol::kVertical][0].phi << std::endl;
+
 
       // std::cout << "In while loop " << isDec << "\t" << isMinBias << "\t" << onContinent << std::endl;
 
@@ -195,11 +209,11 @@ int main(int argc, char* argv[]){
     Double_t sourceAlt = RampdemReader::SurfaceAboveGeoid(sourceLon, sourceLat);
     Double_t distKm = 1e-3*usefulPat.getDistanceFromSource(sourceLat, sourceLon, sourceAlt);
 
-
     std::cout << "Inserted event " << i << ":" << std::endl;
     std::cout << "ANITA at " << pat->longitude << "\t" << pat->latitude << "\t" << 1e-3*pat->altitude << std::endl;
     std::cout << "Reconstructed position at " << sourceLon << "\t" << sourceLat << "\t" << 1e-3*sourceAlt << std::endl;
     std::cout << "They are separated by " << distKm << " km"  << std::endl;
+    std::cout << "Event bearing = " << eventBearing << "\t" << pat->heading << "\t" << summary->peak[AnitaPol::kVertical][0].phi << std::endl;
 
     // write event number to file
     outFile << header->eventNumber << "\t" << fakeTreeEntry << std::endl;
