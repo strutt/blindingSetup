@@ -38,14 +38,22 @@ int main(int argc, char* argv[]){
   TChain* calEventChain = new TChain("eventTree");
   TChain* headChain = new TChain("headTree");
 
+  const char* dataDir = getenv("ANITA_ROOT_DATA");
+  if(!dataDir){
+    std::cerr << "Unable to find environmental variable ANITA_ROOT_DATA" << std::endl;
+    return 1;
+  }
+
   for(Int_t run=firstRun; run<=lastRun; run++){
-    TString fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/calEventFile%d.root", run, run);
+    TString fileName = TString::Format("%s/run%d/calEventFile%d.root", dataDir, run, run);
     calEventChain->Add(fileName);
 
-    fileName = TString::Format("~/UCL/ANITA/flight1415/root/run%d/timedHeadFile%dOfflineMask.root", run, run);
+    fileName = TString::Format("%s/run%d/timedHeadFile%dOfflineMask.root", dataDir, run, run);
     headChain->Add(fileName);
 
   }
+
+  // std::cerr << calEventChain->GetEntries() << "\t" << headChain->GetEntries() << std::endl;
 
   headChain->BuildIndex("eventNumber");
 
